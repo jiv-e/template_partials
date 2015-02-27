@@ -1,0 +1,4 @@
+name = Template partials 
+description = Enables building template files from partials. Theming helper module. 
+package = custom
+core = 7.x

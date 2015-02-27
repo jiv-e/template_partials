@@ -1,0 +1,107 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function template_partials_menu() {
+  $items = array();
+
+  $items['parts/%'] = array(
+    'description' => 'Description',
+    'access callback' => TRUE,
+    'page callback' => 'template_partials_page',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['parts/%/%/%'] = array(
+    'description' => 'Description',
+    'access callback' => TRUE,
+    'page callback' => 'template_partials_page',
+    'page arguments' => array(1, 2, 3),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+function template_partials_page($part, $module = NULL, $delta = NULL) {
+  $page = '';
+
+  // Allow menu callbacks to return strings or arbitrary arrays to render.
+  // If the array returned is not of #type page directly, we need to fill
+  // in the page with defaults.
+  if (is_string($page) || (is_array($page) && (!isset($page['#type']) || ($page['#type'] != 'page')))) {
+    drupal_set_page_content($page);
+    $page = element_info('page');
+  }
+
+  $block_id = '';
+  if ($module !== NULL) {
+    $block_id = $module.'_'.$delta;
+    $block = block_load($module, $delta);
+    $block = _block_render_blocks(array($block_id => $block));
+    $block = _block_get_renderable_array($block);
+    $page[$part][$block_id] = $block;
+  }
+
+
+  // Modules alter the $page as needed. Blocks are populated into regions like
+  // 'sidebar_first', 'footer', etc.
+  drupal_alter('page', $page);
+
+  $page_array = array(
+    '#theme' => 'parts_page',
+    '#theme_wrappers' => array('parts_html'),
+    '#type' => 'page',
+    '#part_string' => $part . ($block_id !== '' ? ' : '.$block_id : ''),
+    '#part' => $part,
+  );
+
+  if($module !== NULL) {
+    $page_array['part'] = array($block, '#theme_wrappers' => array('region'), '#region' => $part);
+  }
+  else {
+    $page_array['page'] = array('#name' => $part, '#debug' => TRUE, '#theme_wrappers' => array('region'), '#region' => $part);
+  }
+  $page['part'] = $page_array;
+  $page['#theme'] = 'parts_page';
+  $page_array['#theme_wrappers'] = array('html');
+  print drupal_render($page_array);
+  //print theme('parts_page', array('part' => $part));
+  // Perform end-of-request tasks.
+  drupal_page_footer();
+  drupal_exit();
+}
+
+/**
+ * Implements hook_theme().
+ *
+ * Defines the theming capabilities provided by this module.
+ */
+function template_partials_theme() {
+  return array(
+    'parts_page' => array(
+      'render element' => 'page',
+      'template' => 'parts',
+    ),
+  );
+}
+
+/**
+ * Implements hook_preprocess_HOOK().
+ */
+function template_partials_preprocess_parts_page(&$variables) {
+  //TODO Can these preprocess functions be picked up automatically?
+  //TODO How to make this theme independent?
+  template_preprocess_html($variables);
+  template_preprocess_page($variables);
+  $variables['scripts'] = omega_get_js();
+
+  //This is for the helper template parts.tpl.php
+  $variables['part'] = $variables['page']['#part'];
+}
+
+function template_partials_partial($part) {
+  return drupal_get_path('theme',$GLOBALS['theme']).'/partials/'.$part.'.inc';
+}
